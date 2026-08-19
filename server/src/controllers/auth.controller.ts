@@ -317,6 +317,7 @@ export async function refreshToken(req: Request, res: Response, next: NextFuncti
     res.status(200).json({
       success: true,
       message: 'Token refreshed successfully',
+      accessToken: newTokens.accessToken,
       user: user.toJSON(),
     });
   } catch (error) {

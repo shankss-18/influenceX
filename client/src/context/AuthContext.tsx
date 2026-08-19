@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { api } from '../api/client';
+import { api, setAccessToken, clearAccessToken, getAccessToken } from '../api/client';
 import { User } from '../types';
 
 interface AuthContextValue {
@@ -21,14 +21,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkAuth = useCallback(async () => {
     try {
       setIsLoading(true);
+      // If no token is stored, skip the /auth/me call entirely
+      if (!getAccessToken()) {
+        setUser(null);
+        return;
+      }
       const res = await api.get<{ success: boolean; user: User }>('/auth/me');
       if (res.data.success && res.data.user) {
         setUser(res.data.user);
       } else {
         setUser(null);
+        clearAccessToken();
       }
     } catch {
       setUser(null);
+      clearAccessToken();
     } finally {
       setIsLoading(false);
     }
@@ -40,11 +47,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
-      const res = await api.post<{ success: boolean; user: User; message?: string }>('/auth/login', {
-        email,
-        password,
-      });
+      const res = await api.post<{ success: boolean; user: User; accessToken?: string; message?: string }>(
+        '/auth/login',
+        { email, password }
+      );
       if (res.data.success && res.data.user) {
+        // Store the access token so every subsequent request carries it
+        if (res.data.accessToken) {
+          setAccessToken(res.data.accessToken);
+        }
         setUser(res.data.user);
         return { success: true };
       }
@@ -64,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      clearAccessToken();
       setUser(null);
     }
   };
