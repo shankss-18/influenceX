@@ -184,10 +184,11 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
       return;
     }
 
-    // Verify password (or allow student IXID default password match)
+    // Verify password (or allow IXID as default password ONLY on first login before custom password is set)
     let isPasswordValid = await comparePassword(password, user.passwordHash);
 
-    if (!isPasswordValid && (user.role === 'STUDENT' || student || isIxIdFormat)) {
+    // IXID fallback: only valid if student has NOT yet set a personal password (mustChangePassword=true)
+    if (!isPasswordValid && user.mustChangePassword && (user.role === 'STUDENT' || student || isIxIdFormat)) {
       const studentIxId = (user.ixId || student?.influenceXId || cleanId).toUpperCase();
       const studentIxIdFormatted = studentIxId.replace(/[^a-zA-Z0-9]/g, '');
       const inputPass = password.trim().toUpperCase();
