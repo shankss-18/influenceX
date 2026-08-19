@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { api } from '../../api/client';
+import { api, setAccessToken } from '../../api/client';
 
 interface ChangePasswordModalProps {
   isOpen?: boolean;
@@ -61,15 +61,19 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         ? { newPassword }
         : { currentPassword, newPassword };
 
-      const res = await api.post<{ success: boolean; message: string; user: any }>(
+      const res = await api.post<{ success: boolean; message: string; user: any; accessToken?: string }>(
         endpoint,
         payload
       );
 
       if (res.data.success) {
+        // Persist the new token so the user stays authenticated
+        if (res.data.accessToken) {
+          setAccessToken(res.data.accessToken);
+        }
         success('Password Updated', res.data.message || 'Your password has been successfully updated.');
         if (setUser) {
-          setUser({ ...user, mustChangePassword: false });
+          setUser(res.data.user ? { ...res.data.user, mustChangePassword: false } : { ...user, mustChangePassword: false });
         }
         handleClose();
       }

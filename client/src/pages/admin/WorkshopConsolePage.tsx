@@ -271,7 +271,12 @@ export const WorkshopConsolePage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          {stats?.windowOpen ? (
+          {isEnded ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+              <Lock className="w-3.5 h-3.5" />
+              Workshop Ended &amp; Frozen
+            </span>
+          ) : stats?.windowOpen ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 animate-pulse">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
               Attendance Window Live

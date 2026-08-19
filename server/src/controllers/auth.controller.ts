@@ -61,7 +61,7 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
         role: 'STUDENT',
         status: 'ACTIVE',
         ixId: canonicalIxId,
-        mustChangePassword: false,
+        mustChangePassword: true,  // force password set on first login
         createdAt: now,
       });
 
@@ -91,7 +91,7 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
         role: 'STUDENT',
         status: 'ACTIVE',
         ixId: student.influenceXId,
-        mustChangePassword: false,
+        mustChangePassword: true,  // force password set on first login
         createdAt: now,
       });
 
@@ -429,6 +429,7 @@ export async function changeFirstLoginPassword(req: Request, res: Response, next
     res.status(200).json({
       success: true,
       message: 'Password successfully updated! Welcome to InfluenceX.',
+      accessToken: tokens.accessToken,
       user: {
         ...user.toJSON(),
         mustChangePassword: false,
