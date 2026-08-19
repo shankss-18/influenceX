@@ -1,0 +1,24 @@
+{
+  "name": "influencex-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "InfluenceX - Private student engagement, credit & attendance platform",
+  "scripts": {
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build:server": "npm --prefix server run build",
+    "build:client": "npm --prefix client run build",
+    "seed": "npm --prefix server run seed",
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install"
+  },
+  "keywords": [
+    "influencex",
+    "niat",
+    "influencers-club"
+  ],
+  "author": "NIAT Influencers Club",
+  "license": "ISC",
+  "dependencies": {
+    "exceljs": "^4.4.0"
+  }
+}
