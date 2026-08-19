@@ -1,7 +1,11 @@
 import axios from 'axios';
 
-// Always use relative /api path — Vercel proxy rewrite forwards to Render backend
-const API_BASE_URL = '/api';
+// Uses VITE_API_BASE_URL from Vercel environment. Falls back to /api for local dev.
+// Works whether the value ends with /api or not.
+const _rawBase = (import.meta as any).env?.VITE_API_BASE_URL as string | undefined;
+const API_BASE_URL = _rawBase
+  ? _rawBase.replace(/\/api\/?$/, '') + '/api'
+  : '/api';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
