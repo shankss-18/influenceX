@@ -272,7 +272,7 @@ export const WorkshopSetupPage: React.FC = () => {
 
     const headerRow = worksheet.getRow(1);
     headerRow.height = 28;
-    headerRow.eachCell((cell) => {
+    headerRow.eachCell((cell: any) => {
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4338CA' } };
       cell.alignment = { vertical: 'middle', horizontal: 'center' };
