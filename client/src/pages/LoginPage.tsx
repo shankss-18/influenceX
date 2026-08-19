@@ -11,8 +11,8 @@ export const LoginPage: React.FC = () => {
   const location = useLocation();
   const { login, isAuthenticated, user } = useAuth();
 
-  const [identifier, setIdentifier] = useState<string>('admin@influencex.niat.edu');
-  const [password, setPassword] = useState<string>('Admin@123456');
+  const [identifier, setIdentifier] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [activeRoleLoading, setActiveRoleLoading] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -102,7 +102,7 @@ export const LoginPage: React.FC = () => {
             <div className="text-center mb-6">
               <h2 className="text-xl font-bold text-gray-900">Sign In to Your Account</h2>
               <p className="text-xs text-gray-500 mt-1">
-                Enter your IXID (e.g. <span className="font-semibold text-gray-700">IX0451</span>) or registered email address.
+                Students & Volunteers: Enter your IXID or assigned credentials to sign in.
               </p>
             </div>
 
@@ -125,7 +125,7 @@ export const LoginPage: React.FC = () => {
                 <Input
                   type="text"
                   required
-                  placeholder="e.g. IX0451 or admin@influencex.niat.edu"
+                  placeholder="Enter your IXID (e.g. IX0451) or email"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   leftIcon={<User className="w-4 h-4 text-gray-400" />}
@@ -140,7 +140,7 @@ export const LoginPage: React.FC = () => {
                 <Input
                   type="password"
                   required
-                  placeholder="••••••••••••"
+                  placeholder="Enter your password or IXID"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   leftIcon={<Lock className="w-4 h-4 text-gray-400" />}
@@ -168,65 +168,25 @@ export const LoginPage: React.FC = () => {
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-white px-2 text-gray-400 font-semibold tracking-wider">
-                  Or 1-Click Test Login
+                  Admin Access
                 </span>
               </div>
             </div>
 
-            {/* Quick 1-Click Role Login Buttons */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {/* 1. Admin Button */}
+            {/* Admin 1-Click Login Button */}
+            <div>
               <button
                 type="button"
                 disabled={isLoading}
                 onClick={() =>
                   handleQuickLogin('admin@influencex.niat.edu', 'Admin@123456', 'Administrator')
                 }
-                className="p-3 rounded-xl border border-brand-200 bg-brand-50/50 hover:bg-brand-100 hover:border-brand-400 transition-all text-center cursor-pointer disabled:opacity-60"
+                className="w-full p-3.5 rounded-xl border border-brand-200 bg-brand-50/60 hover:bg-brand-100 hover:border-brand-300 transition-all text-center cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2 group"
               >
-                <div className="text-xs font-bold text-brand-900 flex items-center justify-center gap-1">
-                  <Shield className="w-3.5 h-3.5 text-brand-600" />
-                  Admin
-                </div>
-                <div className="text-[10px] text-brand-700 mt-0.5">
-                  {activeRoleLoading === 'Administrator' ? 'Signing in...' : '1-Click Login'}
-                </div>
-              </button>
-
-              {/* 2. Volunteer Button */}
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={() =>
-                  handleQuickLogin('volunteer@influencex.niat.edu', 'Volunteer@123456', 'Volunteer')
-                }
-                className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-100 hover:border-emerald-400 transition-all text-center cursor-pointer disabled:opacity-60"
-              >
-                <div className="text-xs font-bold text-emerald-900 flex items-center justify-center gap-1">
-                  <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  Volunteer
-                </div>
-                <div className="text-[10px] text-emerald-700 mt-0.5">
-                  {activeRoleLoading === 'Volunteer' ? 'Signing in...' : '1-Click Login'}
-                </div>
-              </button>
-
-              {/* 3. Student Button */}
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={() =>
-                  handleQuickLogin('student@influencex.niat.edu', 'Student@123456', 'Student')
-                }
-                className="p-3 rounded-xl border border-amber-200 bg-amber-50/50 hover:bg-amber-100 hover:border-amber-400 transition-all text-center cursor-pointer disabled:opacity-60"
-              >
-                <div className="text-xs font-bold text-amber-900 flex items-center justify-center gap-1">
-                  <GraduationCap className="w-3.5 h-3.5 text-amber-600" />
-                  Student
-                </div>
-                <div className="text-[10px] text-amber-700 mt-0.5">
-                  {activeRoleLoading === 'Student' ? 'Signing in...' : '1-Click Login'}
-                </div>
+                <Shield className="w-4 h-4 text-brand-600 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-bold text-brand-900">
+                  {activeRoleLoading === 'Administrator' ? 'Signing in as Admin...' : '1-Click Admin Sign-In'}
+                </span>
               </button>
             </div>
           </CardContent>
