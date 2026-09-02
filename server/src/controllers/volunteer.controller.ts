@@ -271,14 +271,21 @@ export async function volunteerMarkAttendance(req: Request, res: Response, next:
           createdAt: now,
           approvedAt: now,
         });
+      } else if (existingTx.status !== 'APPROVED') {
+        existingTx.status = 'APPROVED';
+        existingTx.approvedAt = now;
+        await existingTx.save();
       }
     } else if (status === 'ABSENT') {
-      // Remove attendance credit & participation credit if marked absent
-      await CreditTransaction.deleteMany({
-        eventId: workshop._id,
-        studentId: student._id,
-        creditType: { $in: ['ATTENDANCE', 'PARTICIPATION'] },
-      });
+      // Mark attendance & participation credits as REJECTED in append-only ledger
+      await CreditTransaction.updateMany(
+        {
+          eventId: workshop._id,
+          studentId: student._id,
+          creditType: { $in: ['ATTENDANCE', 'PARTICIPATION'] },
+        },
+        { status: 'REJECTED' }
+      );
       await ParticipationRecord.deleteMany({
         eventId: workshop._id,
         studentId: student._id,
@@ -461,6 +468,7 @@ export async function volunteerAwardPerformanceCredit(req: Request, res: Respons
       if (existingPartTx) {
         existingPartTx.amount = targetPoints;
         existingPartTx.reason = evaluationReason;
+        existingPartTx.status = 'APPROVED';
         existingPartTx.updatedAt = now;
         await existingPartTx.save();
       } else {
@@ -480,11 +488,14 @@ export async function volunteerAwardPerformanceCredit(req: Request, res: Respons
         });
       }
     } else {
-      await CreditTransaction.deleteMany({
-        eventId: workshop._id,
-        studentId: student._id,
-        creditType: 'PARTICIPATION',
-      });
+      await CreditTransaction.updateMany(
+        {
+          eventId: workshop._id,
+          studentId: student._id,
+          creditType: 'PARTICIPATION',
+        },
+        { status: 'REJECTED' }
+      );
     }
 
     await recalculateStudentLevelAndCache(student._id);

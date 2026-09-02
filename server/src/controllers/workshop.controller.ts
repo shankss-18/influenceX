@@ -822,7 +822,7 @@ export async function purgeAllWorkshops(req: Request, res: Response, next: NextF
     await EventRegistration.deleteMany({ eventId: { $in: workshopIds } });
     await Attendance.deleteMany({ eventId: { $in: workshopIds } });
     await ParticipationRecord.deleteMany({ eventId: { $in: workshopIds } });
-    await CreditTransaction.deleteMany({ eventId: { $in: workshopIds } });
+    await CreditTransaction.updateMany({ eventId: { $in: workshopIds } }, { status: 'REJECTED' });
     await User.updateMany(
       { role: 'VOLUNTEER' },
       { $unset: { assignedWorkshopId: 1, assignedHallName: 1 } }
