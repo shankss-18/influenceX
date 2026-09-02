@@ -143,9 +143,12 @@ export const VolunteerPortalPage: React.FC = () => {
     return `${pad(h)}h ${pad(m)}m ${pad(s)}s`;
   };
 
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
   const handleAttendanceToggle = async (student: VolunteerStudent, newStatus: 'PRESENT' | 'ABSENT') => {
-    if (!session?.windowState?.isOpen) {
-      error('Locked', 'Window closed — attendance and scoring are locked.');
+    // Workshop ended by admin = permanently locked
+    if (session?.windowState?.isWorkshopEnded) {
+      error('Locked', 'Workshop has been ended by administrator — attendance is permanently frozen.');
       return;
     }
 
@@ -408,19 +411,29 @@ export const VolunteerPortalPage: React.FC = () => {
 
       {/* 3. ROSTER TABLE — WITH CUMULATIVE CREDITS & REASON EVALUATION */}
       <Card className="border-gray-200/80 shadow-xs">
-        <CardHeader className="p-4 sm:p-5 border-b border-gray-100 flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-base font-bold text-gray-900">
-              {assignedHall.name} Student Roster
-            </CardTitle>
-            <CardDescription className="text-xs text-gray-500">
-              Mark attendance and evaluate performance scores with reasons. You can update scores anytime while the window is active.
-            </CardDescription>
+        <CardHeader className="p-4 sm:p-5 border-b border-gray-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-base font-bold text-gray-900">
+                {assignedHall.name} Student Roster
+              </CardTitle>
+              <CardDescription className="text-xs text-gray-500">
+                Mark attendance and evaluate performance scores. You can update anytime until the workshop is ended.
+              </CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => fetchSession(true)} leftIcon={<RefreshCw className="w-3.5 h-3.5" />}>
+              Refresh
+            </Button>
           </div>
-
-          <Button variant="ghost" size="sm" onClick={() => fetchSession(false)} leftIcon={<RefreshCw className="w-3.5 h-3.5" />}>
-            Sync
-          </Button>
+          {/* Search Bar */}
+          <div className="mt-3">
+            <Input
+              placeholder="Search by name, IXID or NIAT ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="text-xs"
+            />
+          </div>
         </CardHeader>
 
         <CardContent className="p-0 overflow-x-auto">
@@ -440,11 +453,31 @@ export const VolunteerPortalPage: React.FC = () => {
               {students.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-gray-400">
-                    No students currently assigned to {assignedHall.name}.
+                    No students currently registered for this workshop.
                   </td>
                 </tr>
-              ) : (
-                students.map((student, idx) => {
+              ) : (() => {
+                const q = searchQuery.toLowerCase().trim();
+                const filtered = q
+                  ? students.filter(
+                      (s) =>
+                        s.fullName.toLowerCase().includes(q) ||
+                        s.influenceXId.toLowerCase().includes(q) ||
+                        (s.collegeStudentId || '').toLowerCase().includes(q)
+                    )
+                  : students;
+
+                if (filtered.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan={7} className="py-10 text-center text-gray-400">
+                        No students match &quot;{searchQuery}&quot;.
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return filtered.map((student, idx) => {
                   const isUpdating = updatingStudentId === student.studentId;
                   const isPresent = student.attendanceStatus === 'PRESENT';
                   const isAbsent = student.attendanceStatus === 'ABSENT';
@@ -479,46 +512,44 @@ export const VolunteerPortalPage: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Attendance Toggle Pill */}
+                      {/* Attendance Toggle Pill — always visible, disabled only when workshop ended */}
                       <td className="py-3.5 px-4 text-center">
-                        {isWindowOpen ? (
-                          <div className="inline-flex items-center rounded-xl p-1 bg-gray-100 border border-gray-200">
-                            <button
-                              type="button"
-                              disabled={isUpdating}
-                              onClick={() => handleAttendanceToggle(student, 'PRESENT')}
-                              className={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
-                                isPresent
-                                  ? 'bg-emerald-600 text-white shadow-xs'
-                                  : 'text-gray-600 hover:text-emerald-700'
-                              }`}
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              Present
-                            </button>
-                            <button
-                              type="button"
-                              disabled={isUpdating}
-                              onClick={() => handleAttendanceToggle(student, 'ABSENT')}
-                              className={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
-                                isAbsent
-                                  ? 'bg-slate-700 text-white shadow-xs'
-                                  : 'text-gray-600 hover:text-red-700'
-                              }`}
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                              Absent
-                            </button>
-                          </div>
-                        ) : (
-                          <Badge
-                            variant={
-                              isPresent ? 'green' : isAbsent ? 'gray' : 'amber'
-                            }
+                        <div className="inline-flex items-center rounded-xl p-1 bg-gray-100 border border-gray-200">
+                          <button
+                            type="button"
+                            disabled={isUpdating || isWorkshopEnded}
+                            onClick={() => handleAttendanceToggle(student, 'PRESENT')}
+                            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1 ${
+                              isWorkshopEnded
+                                ? 'cursor-not-allowed opacity-50'
+                                : 'cursor-pointer'
+                            } ${
+                              isPresent
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-gray-600 hover:text-emerald-700'
+                            }`}
                           >
-                            {student.attendanceStatus}
-                          </Badge>
-                        )}
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Present
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isUpdating || isWorkshopEnded}
+                            onClick={() => handleAttendanceToggle(student, 'ABSENT')}
+                            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1 ${
+                              isWorkshopEnded
+                                ? 'cursor-not-allowed opacity-50'
+                                : 'cursor-pointer'
+                            } ${
+                              isAbsent
+                                ? 'bg-slate-700 text-white shadow-xs'
+                                : 'text-gray-600 hover:text-red-700'
+                            }`}
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            Absent
+                          </button>
+                        </div>
                       </td>
 
                       {/* Performance Credit & Reason Trigger */}
@@ -564,7 +595,7 @@ export const VolunteerPortalPage: React.FC = () => {
                     </tr>
                   );
                 })
-              )}
+              })()}
             </tbody>
           </table>
         </CardContent>

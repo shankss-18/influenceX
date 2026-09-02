@@ -88,10 +88,10 @@ export async function getVolunteerActiveSession(req: Request, res: Response, nex
       ? Math.max(0, Math.floor((winStart - nowTime) / 1000))
       : 0;
 
-    // 4. Fetch students strictly for this hall & workshop (SERVER-SIDE SCOPED)
+    // 4. Fetch ALL students registered to this workshop (not just this hall)
+    //    so the volunteer can see and mark attendance for every attendee
     const registrations = await EventRegistration.find({
       eventId: workshop._id,
-      hallName: assignedHall.name,
       status: 'REGISTERED',
     })
       .populate('studentId', 'fullName influenceXId collegeStudentId branch year cachedTotalCredits')
@@ -210,30 +210,9 @@ export async function volunteerMarkAttendance(req: Request, res: Response, next:
       return;
     }
 
+    // Window check removed: volunteers can mark/toggle attendance anytime
+    // (admin ends the workshop to permanently freeze records)
     const now = getCurrentISTDate();
-    const nowTime = now.getTime();
-    const winStart = new Date(workshop.attendanceWindowStart).getTime();
-    const winEnd = new Date(workshop.attendanceWindowEnd).getTime();
-
-    // 1. Server-side window lock check
-    if (nowTime < winStart || nowTime > winEnd) {
-      await createAuditLog({
-        req,
-        actorUserId: user._id,
-        actorRole: 'VOLUNTEER',
-        action: 'VOLUNTEER_ACTION_REJECTED',
-        targetType: 'EVENT',
-        targetId: workshop._id.toString(),
-        reason: `Volunteer '${user.name}' (${user.ixId}) attempted to mark attendance outside the active window (Window Closed).`,
-      });
-
-      res.status(403).json({
-        success: false,
-        error: 'Window closed — attendance and scoring are locked.',
-        isWindowClosed: true,
-      });
-      return;
-    }
 
     // 2. Server-side registration check
     const registration = await EventRegistration.findOne({
