@@ -166,9 +166,7 @@ export const WorkshopSetupPage: React.FC = () => {
         totalRows: number;
         validCount: number;
         volunteers: VolunteerRosterItem[];
-      }>(`/workshops/${id}/setup/volunteers/preview`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      }>(`/workshops/${id}/setup/volunteers/preview`, formData);
 
       if (res.data.success) {
         setUploadedVolunteers(res.data.volunteers);
@@ -310,9 +308,7 @@ export const WorkshopSetupPage: React.FC = () => {
         hasOverflow: boolean;
         message: string;
         assignedRoster: StudentRosterItem[];
-      }>(`/workshops/${id}/setup/students/preview`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      }>(`/workshops/${id}/setup/students/preview`, formData);
 
       if (res.data.success) {
         setStudentRoster(res.data.assignedRoster);
