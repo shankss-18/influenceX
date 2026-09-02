@@ -51,6 +51,7 @@ export const WorkshopConsolePage: React.FC = () => {
   const [ledger, setLedger] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [inspectStudentId, setInspectStudentId] = useState<string | null>(null);
+  const [updatingStudentId, setUpdatingStudentId] = useState<string | null>(null);
 
   // Search & Filters
   const [selectedHallFilter, setSelectedHallFilter] = useState<string>('ALL');
@@ -85,7 +86,7 @@ export const WorkshopConsolePage: React.FC = () => {
       if (res.data.success) {
         success('Credits Revoked', res.data.message);
         setRevokeModalOpen(false);
-        fetchConsoleData();
+        fetchConsoleData(false);
       }
     } catch (err: any) {
       error('Revoke Error', err.response?.data?.error || 'Failed to revoke registration credits');
@@ -94,9 +95,9 @@ export const WorkshopConsolePage: React.FC = () => {
     }
   };
 
-  const fetchConsoleData = async () => {
+  const fetchConsoleData = async (showLoading = false) => {
     try {
-      setIsLoading(true);
+      if (showLoading) setIsLoading(true);
       const res = await api.get<{
         success: boolean;
         workshop: WorkshopSummary;
@@ -123,21 +124,67 @@ export const WorkshopConsolePage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchConsoleData();
+    fetchConsoleData(true);
   }, [id]);
 
   const handleMarkAttendance = async (studentId: string, status: 'PRESENT' | 'ABSENT') => {
+    const prevRoster = [...studentRoster];
+    const prevStats = stats ? { ...stats } : null;
+
+    // Optimistic UI update — instant response without page reload
+    setStudentRoster((prev) =>
+      prev.map((s) => {
+        if (s.studentId === studentId) {
+          const attCredit = status === 'PRESENT' ? 20 : 0;
+          const partCredit = status === 'PRESENT' ? s.participationCredit : 0;
+          const total = s.registrationCredit + attCredit + partCredit;
+          return {
+            ...s,
+            attendanceStatus: status,
+            attendanceCredit: attCredit,
+            participationCredit: partCredit,
+            totalWorkshopCredits: total,
+            capRemaining: Math.max(0, (workshop?.creditCap || 50) - total),
+          };
+        }
+        return s;
+      })
+    );
+
+    // Optimistically update attendance statistics
+    if (stats) {
+      const target = studentRoster.find((s) => s.studentId === studentId);
+      const wasPresent = target?.attendanceStatus === 'PRESENT';
+      const isNowPresent = status === 'PRESENT';
+      let newAttended = stats.attendedCount || 0;
+      if (!wasPresent && isNowPresent) newAttended += 1;
+      if (wasPresent && !isNowPresent) newAttended = Math.max(0, newAttended - 1);
+      const totalStudents = studentRoster.length || 1;
+      setStats({
+        ...stats,
+        attendedCount: newAttended,
+        attendanceRate: Math.round((newAttended / totalStudents) * 100),
+      });
+    }
+
     try {
+      setUpdatingStudentId(studentId);
       const res = await api.post<{ success: boolean; message: string }>(
         `/workshops/${id}/console/attendance`,
         { studentId, status }
       );
       if (res.data.success) {
         success('Attendance Recorded', res.data.message);
-        fetchConsoleData();
+        // Silent background sync
+        fetchConsoleData(false);
       }
     } catch (err: any) {
+      // Revert on failure
+      setStudentRoster(prevRoster);
+      if (prevStats) setStats(prevStats);
       error('Attendance Error', err.response?.data?.error || 'Action failed');
+    } finally {
+      setUpdatingStudentId(null);
     }
   };
 
@@ -624,29 +671,41 @@ export const WorkshopConsolePage: React.FC = () => {
                       </TableCell>
 
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          {s.attendanceStatus === 'PRESENT' ? (
-                            <Badge variant="green" size="sm">✓ PRESENT</Badge>
-                          ) : s.attendanceStatus === 'ABSENT' ? (
-                            <Badge variant="red" size="sm">✗ ABSENT</Badge>
-                          ) : (
-                            <Badge variant="amber" size="sm">NOT MARKED</Badge>
-                          )}
-
-                          {!isEnded && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleMarkAttendance(
-                                  s.studentId,
-                                  s.attendanceStatus === 'PRESENT' ? 'ABSENT' : 'PRESENT'
-                                )
-                              }
-                              className="text-[11px] font-semibold text-brand-600 hover:text-brand-800 hover:underline cursor-pointer"
-                            >
-                              Toggle
-                            </button>
-                          )}
+                        <div className="inline-flex items-center rounded-xl p-1 bg-gray-100 border border-gray-200">
+                          <button
+                            type="button"
+                            disabled={updatingStudentId === s.studentId || isEnded}
+                            onClick={() => handleMarkAttendance(s.studentId, 'PRESENT')}
+                            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1 ${
+                              isEnded
+                                ? 'cursor-not-allowed opacity-50'
+                                : 'cursor-pointer'
+                            } ${
+                              s.attendanceStatus === 'PRESENT'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-gray-600 hover:text-emerald-700'
+                            }`}
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Present
+                          </button>
+                          <button
+                            type="button"
+                            disabled={updatingStudentId === s.studentId || isEnded}
+                            onClick={() => handleMarkAttendance(s.studentId, 'ABSENT')}
+                            className={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1 ${
+                              isEnded
+                                ? 'cursor-not-allowed opacity-50'
+                                : 'cursor-pointer'
+                            } ${
+                              s.attendanceStatus === 'ABSENT'
+                                ? 'bg-slate-700 text-white shadow-xs'
+                                : 'text-gray-600 hover:text-red-700'
+                            }`}
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            Absent
+                          </button>
                         </div>
                       </TableCell>
 

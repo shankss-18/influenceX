@@ -1236,7 +1236,7 @@ export async function adminOverrideAttendance(req: Request, res: Response, next:
       { upsert: true, new: true }
     );
 
-    // Auto-award +20 attendance credits if PRESENT
+    // Auto-award +20 attendance credits if PRESENT, reject credits if ABSENT
     if (status === 'PRESENT') {
       const existingAttTx = await CreditTransaction.findOne({
         studentId: student._id,
@@ -1259,8 +1259,26 @@ export async function adminOverrideAttendance(req: Request, res: Response, next:
           createdAt: now,
           approvedAt: now,
         });
-        await recalculateStudentLevelAndCache(student._id);
+      } else if (existingAttTx.status !== 'APPROVED') {
+        existingAttTx.status = 'APPROVED';
+        existingAttTx.approvedAt = now;
+        await existingAttTx.save();
       }
+      await recalculateStudentLevelAndCache(student._id);
+    } else if (status === 'ABSENT') {
+      await CreditTransaction.updateMany(
+        {
+          eventId: workshop._id,
+          studentId: student._id,
+          creditType: { $in: ['ATTENDANCE', 'PARTICIPATION'] },
+        },
+        { status: 'REJECTED' }
+      );
+      await ParticipationRecord.deleteMany({
+        eventId: workshop._id,
+        studentId: student._id,
+      });
+      await recalculateStudentLevelAndCache(student._id);
     }
 
     await createAuditLog({
@@ -1273,7 +1291,9 @@ export async function adminOverrideAttendance(req: Request, res: Response, next:
 
     res.status(200).json({
       success: true,
-      message: `Attendance updated to '${status}' (+20 attendance credits updated).`,
+      message: `Attendance updated to '${status}' for ${student.fullName}.`,
+      studentId: student._id.toString(),
+      attendanceStatus: status,
     });
   } catch (error) {
     next(error);
