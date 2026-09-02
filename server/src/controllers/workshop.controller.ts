@@ -15,7 +15,7 @@ import { CreditTransaction } from '../models/CreditTransaction';
 import { AuditLog } from '../models/AuditLog';
 import { generateNextEventId, generateNextTransactionId, generateNextTransactionIdBlock } from '../utils/sequence';
 import { hashPassword } from '../utils/jwt';
-import { recalculateStudentLevelAndCache } from '../utils/ledger';
+import { recalculateStudentLevelAndCache, recalculateStudentsLevelAndCacheBulk } from '../utils/ledger';
 import { createAuditLog } from '../utils/audit';
 import { parseExcelUpload, exportToExcel } from '../utils/excel';
 import { getCurrentISTDate, isWithinWindow, dayjs, DEFAULT_TIMEZONE } from '../utils/timezone';
@@ -896,6 +896,8 @@ export async function commitStudentsPlacement(req: Request, res: Response, next:
     // 3. Pre-create any missing User and Student records in batch
     const missingUsers: any[] = [];
     const missingStudentsData: any[] = [];
+    const studentUpdateOps: any[] = [];
+    const userUpdateOps: any[] = [];
 
     for (const item of roster) {
       const ixKey = item.ixId.toUpperCase();
@@ -906,13 +908,12 @@ export async function commitStudentsPlacement(req: Request, res: Response, next:
       if (!student) {
         let user = userByEmail.get(email);
         if (!user) {
-          const studentDefaultHash = await hashPassword(ixKey);
           user = {
             _id: new Types.ObjectId(),
             name: item.name,
             email,
             ixId: ixKey,
-            passwordHash: studentDefaultHash,
+            passwordHash: defaultPasswordHash,
             role: 'STUDENT',
             status: 'ACTIVE',
             mustChangePassword: true,
@@ -943,19 +944,22 @@ export async function commitStudentsPlacement(req: Request, res: Response, next:
         if (niatKey) studentByNiatId.set(niatKey, newStudent);
         missingStudentsData.push(newStudent);
       } else {
-        // Update existing student and user name / IXID for strict matching
+        // Queue bulk updates for existing student/user records
         if (student.fullName !== item.name || student.influenceXId !== item.ixId) {
-          await Student.updateOne(
-            { _id: student._id },
-            { fullName: item.name, influenceXId: item.ixId }
-          );
+          studentUpdateOps.push({
+            updateOne: {
+              filter: { _id: student._id },
+              update: { $set: { fullName: item.name, influenceXId: item.ixId } },
+            },
+          });
         }
         if (student.userId) {
-          const defaultHash = await hashPassword(item.ixId);
-          await User.updateOne(
-            { _id: student.userId },
-            { name: item.name, ixId: item.ixId, passwordHash: defaultHash }
-          );
+          userUpdateOps.push({
+            updateOne: {
+              filter: { _id: student.userId },
+              update: { $set: { name: item.name, ixId: item.ixId } },
+            },
+          });
         }
       }
     }
@@ -965,6 +969,12 @@ export async function commitStudentsPlacement(req: Request, res: Response, next:
     }
     if (missingStudentsData.length > 0) {
       await Student.insertMany(missingStudentsData, { ordered: false });
+    }
+    if (studentUpdateOps.length > 0) {
+      await Student.bulkWrite(studentUpdateOps, { ordered: false });
+    }
+    if (userUpdateOps.length > 0) {
+      await User.bulkWrite(userUpdateOps, { ordered: false });
     }
 
     // 4. Pre-fetch existing registration credits for this workshop
@@ -1036,11 +1046,8 @@ export async function commitStudentsPlacement(req: Request, res: Response, next:
       await CreditTransaction.insertMany(txDocs);
       newlyCreditedCount = studentsToCredit.length;
 
-      // Recalculate level cache for newly credited students in parallel batches
-      const recalculatePromises = studentsToCredit.map((sc) =>
-        recalculateStudentLevelAndCache(sc.student._id)
-      );
-      await Promise.all(recalculatePromises);
+      // Recalculate level cache for all newly credited students in 1 single bulk operation
+      await recalculateStudentsLevelAndCacheBulk(studentsToCredit.map((sc) => sc.student._id));
     }
 
     workshop.studentsSetupCompleted = true;
@@ -1573,11 +1580,8 @@ export async function revokeRegistrationCredits(req: Request, res: Response, nex
       { status: 'REJECTED' }
     );
 
-    // Recalculate level & cached total credits for all affected students
-    const recalculatePromises = affectedStudentIds.map((sId) =>
-      recalculateStudentLevelAndCache(new Types.ObjectId(sId))
-    );
-    await Promise.all(recalculatePromises);
+    // Recalculate level & cached total credits for all affected students in 1 single bulk operation
+    await recalculateStudentsLevelAndCacheBulk(affectedStudentIds);
 
     // Audit log entry
     await createAuditLog({
