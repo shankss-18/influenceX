@@ -156,8 +156,7 @@ export const AdminEventDetailPage: React.FC = () => {
       setIsUploading(true);
       const res = await api.post<{ success: boolean; preview: ImportPreview }>(
         `/events/${id}/import/preview`,
-        formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
+        formData
       );
 
       if (res.data.success) {

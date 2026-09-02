@@ -9,9 +9,6 @@ const API_BASE_URL = _rawBase
 export const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 // ─── Token Storage ────────────────────────────────────────────────────────────
@@ -53,6 +50,15 @@ api.interceptors.request.use((config) => {
     config.headers = config.headers || {};
     config.headers['Authorization'] = `Bearer ${token}`;
   }
+
+  // If sending FormData (file uploads), remove Content-Type so Axios/browser sets boundary automatically
+  if (config.data instanceof FormData) {
+    if (config.headers) {
+      delete config.headers['Content-Type'];
+      delete (config.headers as any)['content-type'];
+    }
+  }
+
   return config;
 });
 
